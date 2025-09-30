@@ -3,3 +3,5 @@
 static/uploads/*
 static/processed/*
 static/removed_videos/*
+static/removed/*
+.idea/
