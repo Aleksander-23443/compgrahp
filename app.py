@@ -31,22 +31,33 @@ def index():
 
             # Получаем параметры обработки
             try:
-                min_size = int(request.form.get("min_size", 100))
-                max_size = int(request.form.get("max_size", 1000))
+                min_width = int(request.form.get("min_width", 100))
+                max_width = int(request.form.get("max_width", 1000))
+                min_height = int(request.form.get("min_height", 100))
+                max_height = int(request.form.get("max_height", 1000))
             except ValueError:
-                min_size, max_size = 100, 1000
+                min_width, max_width = 100, 1000
+                min_height, max_height = 100, 1000
 
             # Коррекция значений
-            min_size = max(1, min_size)
-            max_size = min(max_size, 5000)
-            if min_size > max_size:
-                min_size, max_size = max_size, min_size
+            min_width = max(1, min_width)
+            max_width = min(max_width, 5000)
+            if min_width > max_width:
+                min_width, max_width = max_width, min_width
+
+            min_height = max(1, min_height)
+            max_height = min(max_height, 5000)
+            if min_height > max_height:
+                min_height, max_height = max_height, min_height
 
             visualize = "visualize" in request.form
 
             # Обработка видео
             removed_frames, confidences = process_video(
-                input_path, output_path, min_size, max_size, visualize
+                input_path, output_path,
+                min_width, max_width,
+                min_height, max_height,
+                visualize
             )
 
             # Сохраняем результат

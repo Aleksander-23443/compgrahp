@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Обработка видео</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f4; }
+        h1 { color: #333; }
+        form { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); margin-bottom: 20px; }
+        label { font-weight: bold; }
+        input, button { margin-top: 5px; margin-bottom: 15px; padding: 8px; }
+        button { background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .video-container { margin-top: 20px; }
+        .loading { display: none; font-size: 18px; font-weight: bold; color: #333; text-align: center; margin-top: 20px; }
+        .spinner {
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        .message { margin-top: 20px; font-weight: bold; color: red; }
+    </style>
+</head>
+<body>
+<h1>Загрузка и обработка видео</h1>
+
+<form method="POST" enctype="multipart/form-data" onsubmit="showLoading();">
+    <label>Выберите видеофайл:</label><br>
+    <input type="file" name="video" required><br>
+
+    <label>Минимальная ширина объекта:</label><br>
+    <input type="number" name="min_width" value="100" min="1" max="5000"><br>
+
+    <label>Максимальная ширина объекта:</label><br>
+    <input type="number" name="max_width" value="1000" min="1" max="5000"><br>
+
+    <label>Минимальная высота объекта:</label><br>
+    <input type="number" name="min_height" value="100" min="1" max="5000"><br>
+
+    <label>Максимальная высота объекта:</label><br>
+    <input type="number" name="max_height" value="1000" min="1" max="5000"><br>
+
+    <label>
+        <input type="checkbox" name="visualize"> Визуализировать удалённые кадры
+    </label><br>
+
+    <button type="submit">Обработать</button>
+</form>
+
+<div id="loading" class="loading">
+    <div class="spinner"></div>
+    Видео обрабатывается... Пожалуйста, подождите.
+</div>
+
+{% if message %}
+    <div class="message">
+        {{ message }}
+    </div>
+{% endif %}
+
+{% if processed_video %}
+<div class="video-container">
+    <h2>Итоговое видео с человеком:</h2>
+    <video width="640" controls>
+        <source src="{{ url_for('static', filename='processed/' + processed_video) }}" type="video/mp4">
+        Ваш браузер не поддерживает видео.
+    </video>
+    <br><br>
+    <a href="{{ url_for('static', filename='processed/' + processed_video) }}" download>Скачать итоговое видео</a>
+</div>
+{% endif %}
+
+{% if confidences %}
+<h3>График уверенности детекции человека по кадрам:</h3>
+<canvas id="confidenceChart" width="800" height="400"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('confidenceChart').getContext('2d');
+    const data = {
+        labels: [...Array({{ confidences|length }}).keys()],
+        datasets: [{
+            label: 'Уверенность',
+            data: {{ confidences|safe }},
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            fill: true,
+            tension: 0.1
+        }]
+    };
+    new Chart(ctx, {
+        type: 'line',
+        data: data,
+        options: {
+            scales: {
+                x: { title: { display: true, text: 'Кадр' } },
+                y: { title: { display: true, text: 'Уверенность' }, min:0, max:1 }
+            }
+        }
+    });
+</script>
+{% endif %}
+
+{% if removed_videos %}
+<div class="video-container">
+    <h2>Фрагменты без человека:</h2>
+    <video id="removedVideoPlayer" width="640" controls></video>
+</div>
+<script>
+    const removedVideos = [
+        {% for video in removed_videos %}
+            "{{ url_for('static', filename='removed_videos/' + video) }}"{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const player = document.getElementById('removedVideoPlayer');
+    let index = 0;
+
+    function playNext() {
+        if(index >= removedVideos.length) return;
+        player.src = removedVideos[index];
+        player.play();
+    }
+
+    player.addEventListener('ended', function(){
+        index++;
+        playNext();
+    });
+
+    if(removedVideos.length > 0) playNext();
+</script>
+{% endif %}
+
+<script>
+function showLoading() {
+    document.getElementById("loading").style.display = "block";
+}
+</script>
+</body>
+</html>

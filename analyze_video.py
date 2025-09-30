@@ -7,7 +7,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model = YOLO("yolov8n.pt")
 
 
-def process_video(input_path, output_path, min_size=50, max_size=1000, visualize=False):
+def process_video(input_path, output_path, min_width=50, max_width=1000,min_height = 50, max_height=1000 , visualize=False):
 
 
     cap = cv2.VideoCapture(input_path)
@@ -15,6 +15,10 @@ def process_video(input_path, output_path, min_size=50, max_size=1000, visualize
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+
+    if fps == 0:
+        fps = 30
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
@@ -34,7 +38,11 @@ def process_video(input_path, output_path, min_size=50, max_size=1000, visualize
 
         results = model(frame, device=device, verbose=False)[0]
         humans = [box for box in results.boxes if int(box.cls[0]) == 0]
-        humans = [h for h in humans if min_size <= (h.xyxy[0][2]-h.xyxy[0][0]) <= max_size]
+        humans = [
+            h for h in humans
+            if min_width <= (h.xyxy[0][2] - h.xyxy[0][0]) <= max_width
+               and min_height <= (h.xyxy[0][3] - h.xyxy[0][1]) <= max_height
+        ]
 
         if humans:
             out.write(frame)
