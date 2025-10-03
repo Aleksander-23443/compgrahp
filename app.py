@@ -1,4 +1,5 @@
 import os
+import subprocess
 from flask import Flask, render_template, request, url_for
 from werkzeug.utils import secure_filename
 from analyze_video import process_video
@@ -9,10 +10,47 @@ UPLOAD_FOLDER = "static/uploads"
 OUTPUT_FOLDER = "static/processed"
 REMOVED_FOLDER = "static/removed_videos"
 
-# Создаём папки, если их нет
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(REMOVED_FOLDER, exist_ok=True)
+
+
+def convert_to_h264(input_path, output_path):
+    """
+    Перекодировка видео в H.264 + AAC для корректного воспроизведения в браузере.
+    """
+    temp_path = output_path.replace(".mp4", "_h264.mp4")
+    if not os.path.exists(temp_path):
+        subprocess.run([
+            "ffmpeg", "-y", "-i", input_path,
+            "-c:v", "libx264", "-c:a", "aac", "-movflags", "+faststart",
+            temp_path
+        ], check=True)
+    return temp_path
+
+
+def convert_removed_videos(removed_paths):
+    """
+    Перекодировка всех фрагментов без человека в H.264 + AAC.
+    Возвращает список имён файлов для статических URL.
+    """
+    final_files = []
+    for path in removed_paths:
+        input_path = os.path.join(REMOVED_FOLDER, path)
+        filename = os.path.basename(path)
+        output_path = os.path.join(REMOVED_FOLDER, filename.replace(".mp4", "_h264.mp4"))
+
+        # Перекодируем только если ещё нет перекодированного файла
+        if not os.path.exists(output_path):
+            subprocess.run([
+                "ffmpeg", "-y", "-i", input_path,
+                "-c:v", "libx264", "-c:a", "aac", "-movflags", "+faststart",
+                output_path
+            ], check=True)
+
+        final_files.append(os.path.basename(output_path))
+    return final_files
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -24,12 +62,11 @@ def index():
     if request.method == "POST":
         file = request.files.get("video")
         if file and file.filename:
-            # Безопасное имя файла
             filename = secure_filename(file.filename)
             input_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(input_path)
 
-            # Получаем пользовательское название файла или формируем новое
+            # Итоговое имя видео
             custom_filename = request.form.get("custom_filename", f"processed_{filename}")
             output_filename = custom_filename if custom_filename.endswith(".mp4") else custom_filename + ".mp4"
             output_path = os.path.join(OUTPUT_FOLDER, output_filename)
@@ -65,13 +102,16 @@ def index():
                 visualize
             )
 
-            # Формируем URL для итогового видео
-            video_url = url_for("static", filename=f"processed/{output_filename}")
+            # Перекодируем итоговое видео
+            final_output_path = convert_to_h264(output_path, output_path)
+            final_output_filename = os.path.basename(final_output_path)
+            video_url = url_for("static", filename=f"processed/{final_output_filename}")
 
-            # Формируем список URL для удалённых видеофрагментов
-            removed_videos = [url_for("static", filename=f"removed_videos/{rf}") for rf in removed_frames]
+            # Перекодируем удалённые фрагменты
+            removed_videos_h264 = convert_removed_videos(removed_frames)
+            removed_videos = [url_for("static", filename=f"removed_videos/{rf}") for rf in removed_videos_h264]
 
-            # Проверка специальных случаев
+            # Сообщения
             if not removed_videos:
                 message = "Во всём видео присутствует человек – фрагменты без человека отсутствуют."
             elif all(c == 0 for c in confidences):
@@ -84,6 +124,7 @@ def index():
         confidences=confidences,
         message=message
     )
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

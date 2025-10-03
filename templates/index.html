@@ -22,10 +22,7 @@
             animation: spin 1s linear infinite;
             margin: 10px auto;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg);}
-            100% { transform: rotate(360deg);}
-        }
+        @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
         .message { margin-top: 20px; font-weight: bold; color: red; }
     </style>
 </head>
@@ -116,7 +113,7 @@
 <script>
     const removedVideos = [
         {% for video in removed_videos %}
-            "{{ url_for('static', filename='removed_videos/' + video) }}"{% if not loop.last %},{% endif %}
+            "{{ video }}"{% if not loop.last %},{% endif %}
         {% endfor %}
     ];
 
