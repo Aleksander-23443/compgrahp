@@ -49,6 +49,12 @@ docker run -p 5000:5000 human-detector-app
 
 После запуска веб-интерфейс доступен по адресу `http://localhost:5000`.
 
+### Запуск через Docker Compose 
+```bash
+docker-compose up --build
+```
+После запуска веб-интерфейс будет доступен по адресу `http://localhost:5000`
+
 #### Выполнение команд в контейнере
 
 ```bash
