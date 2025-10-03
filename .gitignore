@@ -5,3 +5,4 @@ static/processed/*
 static/removed_videos/*
 static/removed/*
 .idea/
+yolov8n.pt

@@ -1,5 +1,6 @@
 import os
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, url_for
+from werkzeug.utils import secure_filename
 from analyze_video import process_video
 
 app = Flask(__name__)
@@ -8,28 +9,32 @@ UPLOAD_FOLDER = "static/uploads"
 OUTPUT_FOLDER = "static/processed"
 REMOVED_FOLDER = "static/removed_videos"
 
+# Создаём папки, если их нет
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(REMOVED_FOLDER, exist_ok=True)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    processed_video = None
+    video_url = None
     removed_videos = []
     confidences = []
     message = None
 
     if request.method == "POST":
         file = request.files.get("video")
-        if file:
-            filename = file.filename
+        if file and file.filename:
+            # Безопасное имя файла
+            filename = secure_filename(file.filename)
             input_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(input_path)
 
-            output_filename = "processed_" + filename
+            # Получаем пользовательское название файла или формируем новое
+            custom_filename = request.form.get("custom_filename", f"processed_{filename}")
+            output_filename = custom_filename if custom_filename.endswith(".mp4") else custom_filename + ".mp4"
             output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
-            # Получаем параметры обработки
+            # Параметры обработки
             try:
                 min_width = int(request.form.get("min_width", 100))
                 max_width = int(request.form.get("max_width", 1000))
@@ -60,9 +65,11 @@ def index():
                 visualize
             )
 
-            # Сохраняем результат
-            processed_video = output_filename
-            removed_videos = removed_frames
+            # Формируем URL для итогового видео
+            video_url = url_for("static", filename=f"processed/{output_filename}")
+
+            # Формируем список URL для удалённых видеофрагментов
+            removed_videos = [url_for("static", filename=f"removed_videos/{rf}") for rf in removed_frames]
 
             # Проверка специальных случаев
             if not removed_videos:
@@ -72,7 +79,7 @@ def index():
 
     return render_template(
         "index.html",
-        processed_video=processed_video,
+        video_url=video_url,
         removed_videos=removed_videos,
         confidences=confidences,
         message=message

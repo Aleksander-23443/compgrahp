@@ -36,7 +36,7 @@ def process_video(input_path, output_path, min_width=50, max_width=1000,min_heig
         if not ret:
             break
 
-        results = model(frame, device=device, verbose=False)[0]
+        results = model(frame, device=device, verbose=False, conf = 0.2)[0]
         humans = [box for box in results.boxes if int(box.cls[0]) == 0]
         humans = [
             h for h in humans

@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: flask_video_app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./static/uploads:/app/static/uploads
+      - ./static/processed:/app/static/processed
+      - ./static/removed_videos:/app/static/removed_videos
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

@@ -34,7 +34,7 @@
 
 <form method="POST" enctype="multipart/form-data" onsubmit="showLoading();">
     <label>Выберите видеофайл:</label><br>
-    <input type="file" name="video" required><br>
+    <input type="file" name="video" accept="video/*" required><br>
 
     <label>Минимальная ширина объекта:</label><br>
     <input type="number" name="min_width" value="100" min="1" max="5000"><br>
@@ -66,15 +66,15 @@
     </div>
 {% endif %}
 
-{% if processed_video %}
+{% if video_url %}
 <div class="video-container">
     <h2>Итоговое видео с человеком:</h2>
     <video width="640" controls>
-        <source src="{{ url_for('static', filename='processed/' + processed_video) }}" type="video/mp4">
+        <source src="{{ video_url }}" type="video/mp4">
         Ваш браузер не поддерживает видео.
     </video>
     <br><br>
-    <a href="{{ url_for('static', filename='processed/' + processed_video) }}" download>Скачать итоговое видео</a>
+    <a href="{{ video_url }}" download>Скачать итоговое видео</a>
 </div>
 {% endif %}
 
