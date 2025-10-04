@@ -1,5 +1,7 @@
 import os
 import subprocess
+import atexit
+import shutil
 from flask import Flask, render_template, request, url_for
 from werkzeug.utils import secure_filename
 from analyze_video import process_video
@@ -15,10 +17,23 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(REMOVED_FOLDER, exist_ok=True)
 
 
+def clear_folders():
+    """Очистка всех рабочих папок (processed, removed_videos, uploads)."""
+    for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER, REMOVED_FOLDER]:
+        if os.path.exists(folder):
+            for f in os.listdir(folder):
+                path = os.path.join(folder, f)
+                if os.path.isfile(path):
+                    os.remove(path)
+                elif os.path.isdir(path):
+                    shutil.rmtree(path)
+
+
+# Очистка при завершении программы
+atexit.register(clear_folders)
+
+
 def convert_to_h264(input_path, output_path):
-    """
-    Перекодировка видео в H.264 + AAC для корректного воспроизведения в браузере.
-    """
     temp_path = output_path.replace(".mp4", "_h264.mp4")
     if not os.path.exists(temp_path):
         subprocess.run([
@@ -30,17 +45,12 @@ def convert_to_h264(input_path, output_path):
 
 
 def convert_removed_videos(removed_paths):
-    """
-    Перекодировка всех фрагментов без человека в H.264 + AAC.
-    Возвращает список имён файлов для статических URL.
-    """
     final_files = []
     for path in removed_paths:
         input_path = os.path.join(REMOVED_FOLDER, path)
         filename = os.path.basename(path)
         output_path = os.path.join(REMOVED_FOLDER, filename.replace(".mp4", "_h264.mp4"))
 
-        # Перекодируем только если ещё нет перекодированного файла
         if not os.path.exists(output_path):
             subprocess.run([
                 "ffmpeg", "-y", "-i", input_path,
@@ -59,6 +69,10 @@ def index():
     confidences = []
     message = None
 
+    if request.method == "GET":
+        # Очистка папок при обновлении страницы
+        clear_folders()
+
     if request.method == "POST":
         file = request.files.get("video")
         if file and file.filename:
@@ -66,12 +80,10 @@ def index():
             input_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(input_path)
 
-            # Итоговое имя видео
             custom_filename = request.form.get("custom_filename", f"processed_{filename}")
             output_filename = custom_filename if custom_filename.endswith(".mp4") else custom_filename + ".mp4"
             output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
-            # Параметры обработки
             try:
                 min_width = int(request.form.get("min_width", 100))
                 max_width = int(request.form.get("max_width", 1000))
@@ -81,7 +93,6 @@ def index():
                 min_width, max_width = 100, 1000
                 min_height, max_height = 100, 1000
 
-            # Коррекция значений
             min_width = max(1, min_width)
             max_width = min(max_width, 5000)
             if min_width > max_width:
@@ -94,7 +105,6 @@ def index():
 
             visualize = "visualize" in request.form
 
-            # Обработка видео
             removed_frames, confidences = process_video(
                 input_path, output_path,
                 min_width, max_width,
@@ -102,16 +112,13 @@ def index():
                 visualize
             )
 
-            # Перекодируем итоговое видео
             final_output_path = convert_to_h264(output_path, output_path)
             final_output_filename = os.path.basename(final_output_path)
             video_url = url_for("static", filename=f"processed/{final_output_filename}")
 
-            # Перекодируем удалённые фрагменты
             removed_videos_h264 = convert_removed_videos(removed_frames)
             removed_videos = [url_for("static", filename=f"removed_videos/{rf}") for rf in removed_videos_h264]
 
-            # Сообщения
             if not removed_videos:
                 message = "Во всём видео присутствует человек – фрагменты без человека отсутствуют."
             elif all(c == 0 for c in confidences):
